@@ -1,4 +1,6 @@
-package edu.nyu.yz518;
+package edu.nyu.yz518.minesweeper;
+
+import edu.nyu.yz518.minesweeper.gui.Board;
 
 /**
  * Hello world!
@@ -8,6 +10,6 @@ public class App
 {
     public static void main( String[] args )
     {
-        System.out.println( "Hello World!" );
+        new Board(16, 16);
     }
 }
