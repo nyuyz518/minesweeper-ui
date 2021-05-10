@@ -131,7 +131,7 @@ public class Board {
         for (int i = Math.max(x - 1, 0); i <= Math.min(x + 1, rowSize - 1); i++) {
             for (int j = Math.max(y - 1, 0); j <= Math.min(y + 1, colSize - 1); j++) {
                 if (i != x || j != y) {
-                    ret.add(new ImmutablePair<Integer, Integer>(i, j));
+                    ret.add(new ImmutablePair<>(i, j));
                 }
             }
         }
