@@ -51,6 +51,10 @@ public class MineTile extends JButton {
                 break;
             case FLAGGED:
                 this.setIcon(ICONS[11]);
+                break;
+            case WRONG:
+                this.setIcon(ICONS[12]);
+                break;
             default:
                 this.setIcon(ICONS[tile.getContent() <= 9? tile.getContent() : 0]);
         }

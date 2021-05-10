@@ -10,6 +10,6 @@ public class App
 {
     public static void main( String[] args )
     {
-        new Board(16, 16);
+        new Board(16, 16, 5);
     }
 }

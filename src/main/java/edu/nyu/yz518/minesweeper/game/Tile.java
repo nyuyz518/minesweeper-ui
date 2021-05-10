@@ -10,6 +10,14 @@ public class Tile {
         this.content = content;
     }
 
+    public void setState(TileState state) {
+        this.state = state;
+    }
+
+    public void setContent(int content) {
+        this.content = content;
+    }
+
     public TileState getState() {
         return state;
     }
