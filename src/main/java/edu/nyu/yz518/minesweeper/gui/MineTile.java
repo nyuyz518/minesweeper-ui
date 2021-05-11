@@ -12,7 +12,7 @@ import java.util.Objects;
 public class MineTile extends JButton {
     private final int col;
     private final int row;
-    private static final ImageIcon ICONS[] = {
+    private static final ImageIcon[] ICONS = {
             new ImageIcon(Objects.requireNonNull(MineTile.class.getResource("/img/0.png"))),
             new ImageIcon(Objects.requireNonNull(MineTile.class.getResource("/img/1.png"))),
             new ImageIcon(Objects.requireNonNull(MineTile.class.getResource("/img/2.png"))),
@@ -52,11 +52,11 @@ public class MineTile extends JButton {
             case FLAGGED:
                 this.setIcon(ICONS[11]);
                 break;
-            case WRONG:
+            case WRONGFLAG:
                 this.setIcon(ICONS[12]);
                 break;
             default:
-                this.setIcon(ICONS[tile.getContent() <= 9? tile.getContent() : 0]);
+                this.setIcon(ICONS[tile.getContent() <= Tile.MINE ? tile.getContent() : 0]);
         }
     }
 }

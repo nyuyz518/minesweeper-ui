@@ -2,7 +2,7 @@ package edu.nyu.yz518.minesweeper.game;
 
 public class Tile {
     private TileState state;
-    private int content;
+    private int content;  //the count each tile covers
     public static final int MINE = 9;
 
     public Tile(TileState state, int content) {

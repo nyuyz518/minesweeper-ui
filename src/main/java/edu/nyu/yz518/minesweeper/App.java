@@ -1,15 +1,14 @@
 package edu.nyu.yz518.minesweeper;
 
-import edu.nyu.yz518.minesweeper.gui.Board;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
-/**
- * Hello world!
- *
- */
+@SpringBootApplication
 public class App 
 {
     public static void main( String[] args )
     {
-        new Board(16, 16, 5);
+        SpringApplicationBuilder builder = new SpringApplicationBuilder(App.class);
+        builder.headless(false).run(args);
     }
 }

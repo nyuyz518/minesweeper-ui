@@ -2,12 +2,15 @@ package edu.nyu.yz518.minesweeper.gui;
 
 import edu.nyu.yz518.minesweeper.game.Tile;
 import edu.nyu.yz518.minesweeper.game.TileState;
+import edu.nyu.yz518.minesweeper.svc.MinesweeperRestClient;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JOptionPane;
+import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Container;
@@ -19,27 +22,58 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
 
+@Component
 public class Board {
+    private final MinesweeperRestClient restClient;
     private final MineTile[][] uiTiles;
     private final Tile[][] gameTiles;
     private final Container grid;
 
     private final int mineCount;
+    private final int timeLimit;
+    private final ScheduledExecutorService scheduledExecutorService;
+    private ScheduledFuture<?> currentTimer;
+    private boolean blocked;
     private int flagLeft;
+    private int secondsLeft;
     private final int rowSize;
     private final int colSize;
 
     private final JFrame frame;
+    private final JLabel status;
 
-    public Board(int rowSize, int colSize, int mineCount) {
+    class Updater implements Runnable {
+        @Override
+        public void run() {
+            if(--secondsLeft == 0){
+                SwingUtilities.invokeLater(Board.this::loseGame);
+            }
+            SwingUtilities.invokeLater(Board.this::updateStatus);
+        }
+    };
+
+    public Board(
+            @Value("${edu.nyu.yz518.minesweeper-ui.row-count}")int rowSize,
+            @Value("${edu.nyu.yz518.minesweeper-ui.col-count}")int colSize,
+            @Value("${edu.nyu.yz518.minesweeper-ui.mine-count}")int mineCount,
+            @Value("${edu.nyu.yz518.minesweeper-ui.time-limit}")int timeLimit,
+            MinesweeperRestClient restClient) {
+        this.restClient = restClient;
         this.mineCount = mineCount;
+        this.timeLimit = timeLimit;
+        this.secondsLeft = timeLimit;
         this.flagLeft = mineCount;
         this.rowSize = rowSize;
         this.colSize = colSize;
-        frame = new JFrame("Minesweeper by Yun Zhang, JAVA2021");
+        frame = new JFrame("Yun Zhang, JAVA2021");
+        status = new JLabel("Ready");
         JButton newGame = new JButton("New Game");
         newGame.addMouseListener(new MouseAdapter() {
             @Override
@@ -48,14 +82,18 @@ public class Board {
             }
         });
 
+        scheduledExecutorService = Executors.newScheduledThreadPool(1);
+        currentTimer = scheduledExecutorService.scheduleAtFixedRate(new Updater(), 0, 1, TimeUnit.SECONDS);
+
         uiTiles = new MineTile[rowSize][colSize];
         gameTiles = new Tile[rowSize][colSize];
         grid = new Container();
-        frame.setSize(17 * rowSize, 17 * colSize);
+        frame.setSize(17 * colSize, 17 * rowSize);
         frame.setLayout(new BorderLayout());
-        frame.add(newGame, BorderLayout.SOUTH);
+        frame.add(newGame, BorderLayout.NORTH);
+        frame.add(status, BorderLayout.SOUTH);
 
-        grid.setLayout(new GridLayout(16, 16, -1, -1));
+        grid.setLayout(new GridLayout(rowSize, colSize, -1, -1));
 
         gridForEach((i, j) -> {
                     uiTiles[i][j] = new MineTile(j, i);
@@ -71,6 +109,7 @@ public class Board {
                 }
         );
         placeMines();
+        blocked = false;
 
         frame.add(grid, BorderLayout.CENTER);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -86,6 +125,9 @@ public class Board {
     }
 
     private void tileClicked(MouseEvent e) {
+        if(blocked){
+            return;
+        }
         MineTile t = (MineTile) e.getSource();
         int x = t.getRow();
         int y = t.getCol();
@@ -115,13 +157,23 @@ public class Board {
         }
     }
 
+    private void updateStatus(){
+        status.setText("Time Left: " + this.secondsLeft + " Flags Left: " + this.flagLeft);
+    }
+
     private void newGame() {
+        if(currentTimer != null) {
+            currentTimer.cancel(false);
+            currentTimer = null;
+        }
         gridForEach((i, j) -> {
             gameTiles[i][j] = new Tile(TileState.NEW, 0);
             uiTiles[i][j].setTile(gameTiles[i][j]);
-        }
-        );
+        });
         placeMines();
+        blocked = false;
+        this.secondsLeft = timeLimit;
+        currentTimer = scheduledExecutorService.scheduleAtFixedRate(new Updater(), 0, 1, TimeUnit.SECONDS);
     }
 
     private List<Pair<Integer, Integer>> getAdjacentCells(Pair<Integer, Integer> cell) {
@@ -188,11 +240,16 @@ public class Board {
                 uiTiles[x][y].setTile(gameTiles[x][y]);
             } else if (gameTiles[x][y].getState() == TileState.FLAGGED
             && gameTiles[x][y].getContent() != Tile.MINE) {
-                gameTiles[x][y].setState(TileState.WRONG);
+                gameTiles[x][y].setState(TileState.WRONGFLAG);
                 uiTiles[x][y].setTile(gameTiles[x][y]);
             }
         });
-        JOptionPane.showMessageDialog(frame, "You Lose!");
+        if(currentTimer != null) {
+            currentTimer.cancel(true);
+            currentTimer = null;
+        }
+        status.setText("You Lose!");
+        blocked = true;
     }
 
     public void winGame() {
@@ -212,12 +269,17 @@ public class Board {
         }
         if (win.get()) {
             gridForEach((x, y) -> {
-                if (gameTiles[x][y].getState() == TileState.NEW) {
+                if (gameTiles[x][y].getState() == TileState.NEW && gameTiles[x][y].getContent() != Tile.MINE) {
                     gameTiles[x][y].setState(TileState.FLIPPED);
                     uiTiles[x][y].setTile(gameTiles[x][y]);
                 }
             });
-            JOptionPane.showMessageDialog(frame, "You Win!");
+            if(currentTimer != null) {
+                currentTimer.cancel(true);
+                currentTimer = null;
+            }
+            status.setText("You Win!");
+            blocked = true;
         }
     }
 }

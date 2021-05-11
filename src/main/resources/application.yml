@@ -1,0 +1,8 @@
+edu:
+  nyu:
+    yz518:
+      minesweeper-ui:
+        row-count: 16
+        col-count: 16
+        mine-count: 50
+        time-limit: 1000
