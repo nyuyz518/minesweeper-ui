@@ -1,5 +1,7 @@
 package edu.nyu.yz518.minesweeper.gui;
 
+import edu.nyu.yz518.minesweeper.game.BoardState;
+import edu.nyu.yz518.minesweeper.game.PlayerRecord;
 import edu.nyu.yz518.minesweeper.game.Tile;
 import edu.nyu.yz518.minesweeper.game.TileState;
 import edu.nyu.yz518.minesweeper.svc.MinesweeperRestClient;
@@ -8,12 +10,19 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import java.awt.BorderLayout;
 import java.awt.Container;
+import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
@@ -33,7 +42,7 @@ import java.util.function.BiConsumer;
 public class Board {
     private final MinesweeperRestClient restClient;
     private final MineTile[][] uiTiles;
-    private final Tile[][] gameTiles;
+    private Tile[][] gameTiles = null;
     private final Container grid;
 
     private final int mineCount;
@@ -74,13 +83,87 @@ public class Board {
         this.colSize = colSize;
         frame = new JFrame("Yun Zhang, JAVA2021");
         status = new JLabel("Ready");
+
         JButton newGame = new JButton("New Game");
-        newGame.addMouseListener(new MouseAdapter() {
+        newGame.addMouseListener((new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
                 newGame();
             }
+        }));
+
+        JButton top = new JButton("Top Player");
+        top.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                JDialog topPlayer = new TopPlayers(frame, restClient.getTopPlayers()) ;
+                topPlayer.pack();
+                topPlayer.setVisible(true);
+            }
         });
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new FlowLayout());
+        panel.add(newGame);
+        panel.add(top);
+        JPanel sidePanel = new JPanel();
+        JComboBox<Integer> savedGames
+                = new JComboBox<Integer>(restClient.getSavedBoards().toArray(new Integer[]{}));
+        sidePanel.setLayout(new BoxLayout(sidePanel, BoxLayout.PAGE_AXIS));
+
+        JButton save = new JButton("Save Game State");
+        save.addMouseListener(new MouseAdapter(){
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if(!blocked) {
+                    BoardState current = new BoardState(gameTiles, secondsLeft);
+                    restClient.saveBoardState(current);
+                }
+            }
+        });
+        JButton refresh = new JButton("Refresh Saved");
+        refresh.addMouseListener(new MouseAdapter(){
+            @Override
+            public void mousePressed(MouseEvent e) {
+                savedGames.removeAllItems();
+                for(Integer item : restClient.getSavedBoards()){
+                    savedGames.addItem(item);
+                }
+
+            }
+        });
+
+        JButton load = new JButton("Load Saved Game");
+        load.addMouseListener(new MouseAdapter(){
+            @Override
+            public void mousePressed(MouseEvent e) {
+                Integer i = (Integer) savedGames.getSelectedItem();
+                if(i != null) {
+                    newGame();
+                    BoardState saved = restClient.getBoardState(i);
+                    if(saved == null || saved.getGameBoard() == null){
+                        JOptionPane.showMessageDialog(null, "Incompatible Saved Data", "Alert", JOptionPane.ERROR_MESSAGE);
+                    } else if(Board.this.rowSize == saved.getGameBoard().length &&
+                        Board.this.colSize == saved.getGameBoard()[0].length) {
+                        gameTiles = saved.getGameBoard();
+                        secondsLeft = saved.getSecondLeft();
+
+                        gridForEach((x, y) -> {
+                            uiTiles[x][y].setTile(gameTiles[x][y]);
+                        });
+                    } else {
+                        JOptionPane.showMessageDialog(null, "Incompatible Dimension", "Alert", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            }
+        });
+        JPanel buttons = new JPanel();
+        buttons.setLayout(new FlowLayout());
+        buttons.add(refresh);
+        buttons.add(load);
+        sidePanel.add(save);
+        sidePanel.add(savedGames);
+        sidePanel.add(buttons);
 
         scheduledExecutorService = Executors.newScheduledThreadPool(1);
         currentTimer = scheduledExecutorService.scheduleAtFixedRate(new Updater(), 0, 1, TimeUnit.SECONDS);
@@ -88,10 +171,11 @@ public class Board {
         uiTiles = new MineTile[rowSize][colSize];
         gameTiles = new Tile[rowSize][colSize];
         grid = new Container();
-        frame.setSize(17 * colSize, 17 * rowSize);
+        grid.setSize(17 * colSize, 17 * rowSize);
         frame.setLayout(new BorderLayout());
-        frame.add(newGame, BorderLayout.NORTH);
+        frame.add(panel, BorderLayout.NORTH);
         frame.add(status, BorderLayout.SOUTH);
+        frame.add(sidePanel, BorderLayout.EAST);
 
         grid.setLayout(new GridLayout(rowSize, colSize, -1, -1));
 
@@ -113,6 +197,7 @@ public class Board {
 
         frame.add(grid, BorderLayout.CENTER);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.pack();
         frame.setVisible(true);
     }
 
@@ -279,6 +364,39 @@ public class Board {
                 currentTimer = null;
             }
             status.setText("You Win!");
+            JDialog winDialog = new JDialog(frame, "Record your score");
+            JPanel panel = new JPanel();
+            panel.setLayout(new BoxLayout(panel, BoxLayout.PAGE_AXIS));
+            panel.add(new JLabel("Score: "+Board.this.secondsLeft));
+            panel.add(new JLabel("Name"));
+            JTextField field = new JTextField();
+            panel.add(field);
+            JButton ok = new JButton("OK");
+            ok.addMouseListener(new MouseAdapter(){
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    if(!"".equals(field.getText())) {
+                        restClient.reportScore(new PlayerRecord(field.getText(), Board.this.secondsLeft));
+                        winDialog.dispose();
+                    }
+                }
+            });
+            JButton cancel = new JButton("Cancel");
+            cancel.addMouseListener(new MouseAdapter(){
+                @Override
+                public void mousePressed(MouseEvent e) {
+                    winDialog.dispose();
+                }
+            });
+            JPanel panel2 = new JPanel();
+            panel2.setLayout(new FlowLayout());
+            panel2.add(ok);
+            panel2.add(cancel);
+            panel.add(panel2);
+            winDialog.add(panel);
+            winDialog.pack();
+            winDialog.setVisible(true);
+
             blocked = true;
         }
     }

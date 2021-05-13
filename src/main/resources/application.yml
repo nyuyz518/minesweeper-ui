@@ -4,5 +4,10 @@ edu:
       minesweeper-ui:
         row-count: 16
         col-count: 16
-        mine-count: 50
+        mine-count: 5
         time-limit: 1000
+      svc:
+        url: http://localhost:8081/
+spring:
+  main:
+    web-application-type: none

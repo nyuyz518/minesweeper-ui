@@ -1,24 +1,22 @@
 package edu.nyu.yz518.minesweeper.game;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 public class PlayerRecord {
     private final String uid;
-    private final String name;
     private final int score;
 
-    public PlayerRecord(String uid, String name, int score) {
+    @JsonCreator
+    public PlayerRecord(@JsonProperty("uid") String uid, @JsonProperty("score") int score) {
         this.uid = uid;
-        this.name = name;
         this.score = score;
     }
 
     public String getUid() {
         return uid;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public int getScore() {
@@ -29,7 +27,6 @@ public class PlayerRecord {
     public String toString() {
         return "PlayerRecord{" +
                 "uid='" + uid + '\'' +
-                ", name='" + name + '\'' +
                 ", score=" + score +
                 '}';
     }
@@ -39,11 +36,11 @@ public class PlayerRecord {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         PlayerRecord that = (PlayerRecord) o;
-        return score == that.score && uid.equals(that.uid) && name.equals(that.name);
+        return score == that.score && uid.equals(that.uid);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(uid, name, score);
+        return Objects.hash(uid, score);
     }
 }

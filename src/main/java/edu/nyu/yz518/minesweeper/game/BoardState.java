@@ -1,24 +1,24 @@
 package edu.nyu.yz518.minesweeper.game;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.util.Arrays;
 import java.util.Objects;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BoardState {
-    private final String uid;
-    private final Tile[] gameBoard;
+    private final Tile[][] gameBoard;
     private final int secondLeft;
 
-    public BoardState(String uid, Tile[] gameBoard, int secondLeft) {
-        this.uid = uid;
+    public BoardState(){
+        this(null, 0);
+    }
+    public BoardState(Tile[][] gameBoard, int secondLeft) {
         this.gameBoard = gameBoard;
         this.secondLeft = secondLeft;
     }
 
-    public String getUid() {
-        return uid;
-    }
-
-    public Tile[] getGameBoard() {
+    public Tile[][] getGameBoard() {
         return gameBoard;
     }
 
@@ -29,8 +29,7 @@ public class BoardState {
     @Override
     public String toString() {
         return "BoardState{" +
-                "uid='" + uid + '\'' +
-                ", gameBoard=" + Arrays.toString(gameBoard) +
+                "gameBoard=" + Arrays.toString(gameBoard) +
                 ", secondLeft=" + secondLeft +
                 '}';
     }
@@ -40,12 +39,12 @@ public class BoardState {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         BoardState that = (BoardState) o;
-        return secondLeft == that.secondLeft && uid.equals(that.uid) && Arrays.equals(gameBoard, that.gameBoard);
+        return secondLeft == that.secondLeft && Arrays.equals(gameBoard, that.gameBoard);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(uid, secondLeft);
+        int result = Objects.hash(secondLeft);
         result = 31 * result + Arrays.hashCode(gameBoard);
         return result;
     }
